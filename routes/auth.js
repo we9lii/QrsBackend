@@ -78,6 +78,7 @@ router.post('/login', async (req, res) => {
             joinDate: user.created_at || new Date().toISOString(),
             employeeType: user.employee_type || 'Technician',
             hasImportExportPermission: !!user.has_import_export_permission,
+            hasPackageManagementPermission: !!user.has_package_management_permission,
             isFirstLogin: !!user.is_first_login,
             allowedReportTypes: (() => { try { return JSON.parse(user.allowed_report_types || '[]'); } catch { return []; } })(),
         };

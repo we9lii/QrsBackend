@@ -1,4 +1,4 @@
-﻿services:
+services:
   - type: web
     name: qssun-reports-backend
     env: node
@@ -7,10 +7,9 @@
     buildCommand: npm install
     startCommand: npm start
     autoDeploy: true
+    healthCheckPath: /api/health
     envVars:
       - key: NODE_VERSION
         value: 18
       - key: FRONTEND_URL
         value: https://qrs.qssun.solar
-      - key: PORT
-        value: 10000

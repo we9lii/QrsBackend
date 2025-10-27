@@ -10,6 +10,7 @@ const teamRoutes = require('./teams');
 const notificationRoutes = require('./notifications');
 const fcmRoutes = require('./fcm');
 const packageRoutes = require('./packages');
+const webpushRoutes = require('./webpush');
 
 router.use(authRoutes);
 router.use(reportRoutes);
@@ -19,5 +20,6 @@ router.use(workflowRoutes);
 router.use(teamRoutes);
 router.use(notificationRoutes);
 router.use('/fcm-token', fcmRoutes);
+router.use(webpushRoutes);
 router.use(packageRoutes);
 module.exports = router;

@@ -22,6 +22,7 @@ router.get('/users', async (req, res) => {
             joinDate: user.created_at ? new Date(user.created_at).toISOString() : new Date().toISOString(),
             employeeType: user.employee_type || 'Technician',
             hasImportExportPermission: !!user.has_import_export_permission,
+            hasPackageManagementPermission: !!user.has_package_management_permission,
             isFirstLogin: !!user.is_first_login,
             allowedReportTypes: (() => { try { return JSON.parse(user.allowed_report_types || '[]'); } catch { return []; } })(),
         }));
@@ -35,7 +36,7 @@ router.get('/users', async (req, res) => {
 
 // POST /api/users - Create a new user
 router.post('/users', async (req, res) => {
-    const { employeeId, password, email, name, phone, role, branch, department, position, employeeType, hasImportExportPermission, allowedReportTypes } = req.body;
+    const { employeeId, password, email, name, phone, role, branch, department, position, employeeType, hasImportExportPermission, hasPackageManagementPermission, allowedReportTypes } = req.body;
 
     try {
         let branchId = null;
@@ -62,6 +63,7 @@ router.post('/users', async (req, res) => {
             position: position,
             employee_type: employeeType,
             has_import_export_permission: hasImportExportPermission ? 1 : 0,
+            has_package_management_permission: hasPackageManagementPermission ? 1 : 0,
             is_first_login: 1, // New users should complete their profile
             is_active: 1,
             allowed_report_types: Array.isArray(allowedReportTypes) ? JSON.stringify(allowedReportTypes) : null,
@@ -86,6 +88,7 @@ router.post('/users', async (req, res) => {
             joinDate: new Date(user.created_at).toISOString(),
             employeeType: user.employee_type,
             hasImportExportPermission: !!user.has_import_export_permission,
+            hasPackageManagementPermission: !!user.has_package_management_permission,
             isFirstLogin: !!user.is_first_login,
             allowedReportTypes: (() => { try { return JSON.parse(user.allowed_report_types || '[]'); } catch { return []; } })(),
         };
@@ -101,7 +104,7 @@ router.post('/users', async (req, res) => {
 // PUT /api/users/:id - Update an existing user
 router.put('/users/:id', async (req, res) => {
     const { id } = req.params;
-    const { employeeId, email, name, phone, role, branch, department, position, employeeType, hasImportExportPermission, allowedReportTypes } = req.body;
+    const { employeeId, email, name, phone, role, branch, department, position, employeeType, hasImportExportPermission, hasPackageManagementPermission, allowedReportTypes } = req.body;
 
     // Helper to map frontend role to DB value
     const mapRoleToDb = (roleStr) => {
@@ -146,6 +149,7 @@ router.put('/users/:id', async (req, res) => {
         if (position !== undefined) updates.position = position;
         if (employeeType !== undefined) updates.employee_type = employeeType;
         if (hasImportExportPermission !== undefined) updates.has_import_export_permission = hasImportExportPermission ? 1 : 0;
+        if (hasPackageManagementPermission !== undefined) updates.has_package_management_permission = hasPackageManagementPermission ? 1 : 0;
         if (allowedReportTypes !== undefined) updates.allowed_report_types = Array.isArray(allowedReportTypes) ? JSON.stringify(allowedReportTypes) : null;
         if (role !== undefined) updates.role = mapRoleToDb(role);
 
@@ -191,6 +195,7 @@ router.put('/users/:id', async (req, res) => {
             joinDate: new Date(user.created_at).toISOString(),
             employeeType: user.employee_type,
             hasImportExportPermission: !!user.has_import_export_permission,
+            hasPackageManagementPermission: !!user.has_package_management_permission,
             isFirstLogin: !!user.is_first_login,
             allowedReportTypes: (() => { try { return JSON.parse(user.allowed_report_types || '[]'); } catch { return []; } })(),
         };

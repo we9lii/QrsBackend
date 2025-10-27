@@ -48,8 +48,33 @@ const mapPackageRowToFrontend = (row) => ({
   meta: (() => { try { return JSON.parse(row.meta || '{}'); } catch { return {}; } })(),
 });
 
+// Security Middleware to check for Package Management permission
+const checkPackageManagementPermission = async (req, res, next) => {
+  try {
+    const requesterIdOrUsername = req.headers['x-user-id'] || req.body.employeeId;
+    if (!requesterIdOrUsername) {
+      return res.status(401).json({ message: 'Unauthorized: User ID is missing.' });
+    }
+    const idStr = String(requesterIdOrUsername);
+    const isNumericId = /^[0-9]+$/.test(idStr);
+    const whereField = isNumericId ? 'id' : 'username';
+    const [userRows] = await db.query(`SELECT role, has_package_management_permission FROM users WHERE ${whereField} = ?`, [requesterIdOrUsername]);
+    if (userRows.length === 0) {
+      return res.status(404).json({ message: 'User not found.' });
+    }
+    const user = userRows[0];
+    if (String(user.role).toLowerCase() === 'admin' || !!user.has_package_management_permission) {
+      return next();
+    }
+    return res.status(403).json({ message: 'Forbidden: Package management permission required.' });
+  } catch (error) {
+    console.error('Error in checkPackageManagementPermission:', error);
+    return res.status(500).json({ message: 'Internal error while checking permissions.' });
+  }
+};
+
 // GET /api/package-requests - list
-router.get('/package-requests', async (req, res) => {
+router.get('/package-requests', checkPackageManagementPermission, async (req, res) => {
   try {
     const requesterId = req.headers['x-user-id'];
     const requesterRole = (req.headers['x-user-role'] || '').toLowerCase();
@@ -82,7 +107,7 @@ router.get('/package-requests', async (req, res) => {
 });
 
 // POST /api/package-requests - create
-router.post('/package-requests', async (req, res) => {
+router.post('/package-requests', checkPackageManagementPermission, async (req, res) => {
   const {
     employeeId,
     title,
@@ -143,7 +168,7 @@ router.post('/package-requests', async (req, res) => {
 });
 
 // GET /api/package-requests/:id - details with attachments + logs
-router.get('/package-requests/:id', async (req, res) => {
+router.get('/package-requests/:id', checkPackageManagementPermission, async (req, res) => {
   const { id } = req.params;
   try {
     const [rows] = await db.query(
@@ -172,7 +197,7 @@ router.get('/package-requests/:id', async (req, res) => {
 });
 
 // POST /api/package-requests/:id/confirm-payment - upload payment proof and set status
-router.post('/package-requests/:id/confirm-payment', upload.array('payment_proof'), async (req, res) => {
+router.post('/package-requests/:id/confirm-payment', checkPackageManagementPermission, upload.array('payment_proof'), async (req, res) => {
   const { id } = req.params;
   const { employeeId, comment } = req.body;
   try {
@@ -214,7 +239,7 @@ router.post('/package-requests/:id/confirm-payment', upload.array('payment_proof
 });
 
 // POST /api/package-requests/:id/start - move to PROCESSING
-router.post('/package-requests/:id/start', async (req, res) => {
+router.post('/package-requests/:id/start', checkPackageManagementPermission, async (req, res) => {
   const { id } = req.params;
   const { employeeId, comment } = req.body;
   try {
@@ -240,7 +265,7 @@ router.post('/package-requests/:id/start', async (req, res) => {
 });
 
 // POST /api/package-requests/:id/mark-ready - upload shipping docs and set READY_FOR_DELIVERY
-router.post('/package-requests/:id/mark-ready', upload.array('shipping_docs'), async (req, res) => {
+router.post('/package-requests/:id/mark-ready', checkPackageManagementPermission, upload.array('shipping_docs'), async (req, res) => {
   const { id } = req.params;
   const { employeeId, comment } = req.body;
   try {
@@ -281,7 +306,7 @@ router.post('/package-requests/:id/mark-ready', upload.array('shipping_docs'), a
 });
 
 // POST /api/package-requests/:id/confirm-delivery - set DELIVERED
-router.post('/package-requests/:id/confirm-delivery', async (req, res) => {
+router.post('/package-requests/:id/confirm-delivery', checkPackageManagementPermission, async (req, res) => {
   const { id } = req.params;
   const { employeeId, comment } = req.body;
   try {
@@ -307,7 +332,7 @@ router.post('/package-requests/:id/confirm-delivery', async (req, res) => {
 });
 
 // PUT /api/package-requests/:id - update editable fields
-router.put('/package-requests/:id', async (req, res) => {
+router.put('/package-requests/:id', checkPackageManagementPermission, async (req, res) => {
   const { id } = req.params;
   const { employeeId, title, description, customerName, customerPhone, priority, status, progressPercent } = req.body;
   try {
@@ -348,7 +373,7 @@ router.put('/package-requests/:id', async (req, res) => {
 });
 
 // DELETE /api/package-requests/:id - delete
-router.delete('/package-requests/:id', async (req, res) => {
+router.delete('/package-requests/:id', checkPackageManagementPermission, async (req, res) => {
   const { id } = req.params;
   try {
     await db.query('DELETE FROM package_attachments WHERE package_id = ?', [id]);
