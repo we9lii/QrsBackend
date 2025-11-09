@@ -12,6 +12,7 @@ const fcmRoutes = require('./fcm');
 const packageRoutes = require('./packages');
 const webpushRoutes = require('./webpush');
 const purchaseRoutes = require('./purchases');
+const instantExpenseRoutes = require('./instantExpenses');
 
 router.use(authRoutes);
 router.use(reportRoutes);
@@ -24,5 +25,6 @@ router.use(fcmRoutes);
 router.use(webpushRoutes);
 router.use(packageRoutes);
 router.use(purchaseRoutes);
+router.use(instantExpenseRoutes);
 
 module.exports = router;
