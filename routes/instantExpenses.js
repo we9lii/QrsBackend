@@ -12,7 +12,18 @@ const checkPurchaseManagementPermission = async (req, res, next) => {
     const idStr = String(requesterIdOrUsername);
     const isNumericId = /^[0-9]+$/.test(idStr);
     const whereField = isNumericId ? 'id' : 'username';
-    const [userRows] = await db.query(`SELECT role, has_purchase_management_permission FROM users WHERE ${whereField} = ?`, [requesterIdOrUsername]);
+    let userRows;
+    try {
+      [userRows] = await db.query(`SELECT role, has_purchase_management_permission FROM users WHERE ${whereField} = ?`, [requesterIdOrUsername]);
+    } catch (err) {
+      // Fallback if column has_purchase_management_permission does not exist yet
+      if (err && err.code === 'ER_BAD_FIELD_ERROR') {
+        console.warn('users.has_purchase_management_permission column missing; falling back to role-only check.');
+        [userRows] = await db.query(`SELECT role FROM users WHERE ${whereField} = ?`, [requesterIdOrUsername]);
+      } else {
+        throw err;
+      }
+    }
     if (userRows.length === 0) {
       return res.status(404).json({ message: 'User not found.' });
     }
