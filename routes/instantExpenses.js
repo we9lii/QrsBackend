@@ -116,10 +116,21 @@ router.post('/instant-expenses/sheets', checkPurchaseManagementPermission, async
       created_at: new Date(),
       last_modified: new Date(),
     };
-    await db.query('INSERT INTO instant_expense_sheets SET ?', payload);
+    const [insertResult] = await db.query('INSERT INTO instant_expense_sheets SET ?', payload);
 
-    const [rows] = await db.query('SELECT * FROM instant_expense_sheets WHERE id = ?', [id]);
-    res.status(201).json(mapSheetRow(rows[0]));
+    // Try to fetch the inserted row; if not immediately visible due to replication/transaction settings,
+    // fall back to returning the inserted payload mapped to response shape to avoid 500 errors.
+    let rows = [];
+    try {
+      const [fetched] = await db.query('SELECT * FROM instant_expense_sheets WHERE id = ?', [id]);
+      rows = fetched || [];
+    } catch (e) {
+      console.warn('Fetch after insert failed, returning payload directly. Error:', e && e.message ? e.message : e);
+    }
+    if (rows.length > 0) {
+      return res.status(201).json(mapSheetRow(rows[0]));
+    }
+    return res.status(201).json(mapSheetRow(payload));
   } catch (error) {
     console.error('Error in POST /api/instant-expenses/sheets:', error);
     res.status(500).json({ message: 'حدث خطأ داخلي أثناء إنشاء العهدة.' });
