@@ -70,7 +70,7 @@ const mapLineRow = (row) => ({
 // GET /api/instant-expenses/sheets - list custody sheets (ordered by last_modified DESC)
 router.get('/instant-expenses/sheets', checkPurchaseManagementPermission, async (req, res) => {
   try {
-    const requesterId = req.headers['x-user-id'];
+    const requesterIdOrUsername = req.headers['x-user-id'];
     const requesterRole = (req.headers['x-user-role'] || '').toLowerCase();
 
     let base = `
@@ -82,10 +82,28 @@ router.get('/instant-expenses/sheets', checkPurchaseManagementPermission, async 
     `;
     let where = '';
     let params = [];
-    if (requesterRole === 'employee' && requesterId) {
+
+    // If requester is an employee, restrict to their own sheets.
+    if (requesterRole === 'employee' && requesterIdOrUsername) {
+      let userIdForFilter = null;
+      const idStr = String(requesterIdOrUsername);
+      const isNumericId = /^[0-9]+$/.test(idStr);
+      if (isNumericId) {
+        userIdForFilter = Number(idStr);
+      } else {
+        // Resolve username to numeric user id to match s.user_id type
+        const [userRows] = await db.query('SELECT id FROM users WHERE username = ? OR id = ?', [requesterIdOrUsername, requesterIdOrUsername]);
+        if (userRows.length > 0) {
+          userIdForFilter = userRows[0].id;
+        } else {
+          // No user found -> return empty list gracefully
+          return res.json([]);
+        }
+      }
       where = 'WHERE s.user_id = ?';
-      params = [requesterId];
+      params = [userIdForFilter];
     }
+
     const tail = ` GROUP BY s.id ORDER BY s.last_modified DESC`;
     const query = `${base} ${where} ${tail}`;
 
