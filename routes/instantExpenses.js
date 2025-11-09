@@ -6,6 +6,11 @@ const db = require('../db.js');
 const checkPurchaseManagementPermission = async (req, res, next) => {
   try {
     const requesterIdOrUsername = req.headers['x-user-id'] || req.body.employeeId;
+    const roleHeader = (req.headers['x-user-role'] || '').toLowerCase();
+    // Allow Admin by role header even if user id is not provided (to avoid blocking browsing lists)
+    if (!requesterIdOrUsername && roleHeader === 'admin') {
+      return next();
+    }
     if (!requesterIdOrUsername) {
       return res.status(401).json({ message: 'Unauthorized: User ID is missing.' });
     }
