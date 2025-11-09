@@ -1,4 +1,4 @@
-﻿require('dotenv').config();
+require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const allRoutes = require('./routes');
@@ -57,6 +57,16 @@ const corsOptions = {
       callback(new Error('Not allowed by CORS'));
     }
   },
+  // Explicitly allow custom headers used by the frontend
+  allowedHeaders: [
+    'Content-Type',
+    'X-User-Id',
+    'X-User-Role',
+    'Authorization',
+    'Accept',
+    'Origin',
+  ],
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   optionsSuccessStatus: 200,
 };
 
