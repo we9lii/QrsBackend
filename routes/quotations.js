@@ -87,8 +87,8 @@ router.get('/quotations/:id', async (req, res) => {
     const { id } = req.params;
     const [qRows] = await db.query(
       `SELECT id, quote_number, quote_date, customer_name, location, mobile, created_at
-         FROM quotations WHERE id = ?`,
-      [id]
+         FROM quotations WHERE id = ? OR quote_number = ? LIMIT 1`,
+      [id, id]
     );
     if (!qRows || qRows.length === 0) {
       return res.status(404).json({ message: 'لم يتم العثور على عرض السعر.' });
@@ -99,7 +99,7 @@ router.get('/quotations/:id', async (req, res) => {
       `SELECT id, category, horsepower, capacity_kw, price_per_kw, total_before_tax, vat15, total_with_tax
          FROM quotation_items WHERE quotation_id = ?
          ORDER BY FIELD(category, 'الأفضل','الجيد','الاقتصادي','الأدنى'), id ASC`,
-      [id]
+      [quotation.id]
     );
 
     return res.status(200).json({
