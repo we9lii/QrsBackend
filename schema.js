@@ -165,6 +165,21 @@ async function ensureSchema() {
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
     `);
     console.log(' Ensured table instant_expense_lines exists');
+    // Ensure quotations table columns exist if table already present
+    try {
+      const [locCol] = await db.query("SHOW COLUMNS FROM quotations LIKE 'location'");
+      if (!locCol || locCol.length === 0) {
+        await db.query("ALTER TABLE quotations ADD COLUMN location VARCHAR(255) NULL AFTER customer_name");
+        console.log(' Added column quotations.location');
+      }
+      const [mobileCol] = await db.query("SHOW COLUMNS FROM quotations LIKE 'mobile'");
+      if (!mobileCol || mobileCol.length === 0) {
+        await db.query("ALTER TABLE quotations ADD COLUMN mobile VARCHAR(32) NULL AFTER location");
+        console.log(' Added column quotations.mobile');
+      }
+    } catch (e) {
+      console.log(' Skipping quotations column check due to error:', e.message);
+    }
     // 10) Ensure quotations table exists
     await db.query(`
       CREATE TABLE IF NOT EXISTS quotations (
