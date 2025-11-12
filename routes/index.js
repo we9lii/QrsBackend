@@ -13,6 +13,7 @@ const packageRoutes = require('./packages');
 const webpushRoutes = require('./webpush');
 const purchaseRoutes = require('./purchases');
 const instantExpenseRoutes = require('./instantExpenses');
+const quotationRoutes = require('./quotations');
 
 router.use(authRoutes);
 router.use(reportRoutes);
@@ -26,5 +27,6 @@ router.use(webpushRoutes);
 router.use(packageRoutes);
 router.use(purchaseRoutes);
 router.use(instantExpenseRoutes);
+router.use(quotationRoutes);
 
 module.exports = router;

@@ -165,6 +165,42 @@ async function ensureSchema() {
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
     `);
     console.log(' Ensured table instant_expense_lines exists');
+    // 10) Ensure quotations table exists
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS quotations (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        quote_number VARCHAR(64) NOT NULL,
+        quote_date DATE NOT NULL,
+        customer_name VARCHAR(255) NOT NULL,
+        location VARCHAR(255),
+        mobile VARCHAR(32),
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        INDEX(quote_date),
+        INDEX(created_at)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    `);
+    console.log(' Ensured table quotations exists');
+
+    // 11) Ensure quotation_items table exists
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS quotation_items (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        quotation_id INT NOT NULL,
+        category VARCHAR(64) NOT NULL,
+        horsepower VARCHAR(64),
+        capacity_kw DECIMAL(12,2),
+        price_per_kw DECIMAL(12,2),
+        total_before_tax DECIMAL(12,2),
+        vat15 DECIMAL(12,2),
+        total_with_tax DECIMAL(12,2),
+        INDEX(quotation_id),
+        CONSTRAINT fk_quotation_items_quotation
+          FOREIGN KEY (quotation_id)
+          REFERENCES quotations(id)
+          ON DELETE CASCADE
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    `);
+    console.log(' Ensured table quotation_items exists');
   } catch (err) {
     console.error(' Schema check/add failed:', err.message);
   }
