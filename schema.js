@@ -216,6 +216,25 @@ async function ensureSchema() {
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
     `);
     console.log(' Ensured table quotation_items exists');
+    // Ensure quotation_items columns exist if table already present
+    try {
+      const ensureColumn = async (name, type) => {
+        const [col] = await db.query(`SHOW COLUMNS FROM quotation_items LIKE '${name}'`);
+        if (!col || col.length === 0) {
+          await db.query(`ALTER TABLE quotation_items ADD COLUMN ${name} ${type}`);
+          console.log(` Added column quotation_items.${name}`);
+        }
+      };
+      await ensureColumn('category', "VARCHAR(64) NOT NULL");
+      await ensureColumn('horsepower', "VARCHAR(64) NULL");
+      await ensureColumn('capacity_kw', "DECIMAL(12,2) NULL");
+      await ensureColumn('price_per_kw', "DECIMAL(12,2) NULL");
+      await ensureColumn('total_before_tax', "DECIMAL(12,2) NULL");
+      await ensureColumn('vat15', "DECIMAL(12,2) NULL");
+      await ensureColumn('total_with_tax', "DECIMAL(12,2) NULL");
+    } catch (e) {
+      console.log(' Skipping quotation_items column check due to error:', e.message);
+    }
   } catch (err) {
     console.error(' Schema check/add failed:', err.message);
   }
