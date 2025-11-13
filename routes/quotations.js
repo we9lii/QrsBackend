@@ -60,6 +60,9 @@ router.post('/quotations', async (req, res) => {
         total_before_tax: it.total_before_tax !== undefined && it.total_before_tax !== null ? Number(it.total_before_tax) : null,
         vat15: it.vat15 !== undefined && it.vat15 !== null ? Number(it.vat15) : null,
         total_with_tax: it.total_with_tax !== undefined && it.total_with_tax !== null ? Number(it.total_with_tax) : null,
+        device_type: it.device_type ? String(it.device_type) : null,
+        device_count: it.device_count !== undefined && it.device_count !== null ? Number(it.device_count) : null,
+        voltage: it.voltage !== undefined && it.voltage !== null ? Number(it.voltage) : 380,
       };
       await db.query('INSERT INTO quotation_items SET ?', itemPayload);
     }
@@ -96,7 +99,7 @@ router.get('/quotations/:id', async (req, res) => {
     const quotation = qRows[0];
 
     const [items] = await db.query(
-      `SELECT id, category, horsepower, capacity_kw, price_per_kw, total_before_tax, vat15, total_with_tax
+      `SELECT id, category, horsepower, capacity_kw, price_per_kw, total_before_tax, vat15, total_with_tax, device_type, device_count, voltage
          FROM quotation_items WHERE quotation_id = ?
          ORDER BY FIELD(category, 'الأفضل','الجيد','الاقتصادي','الأدنى'), id ASC`,
       [quotation.id]
@@ -115,6 +118,23 @@ router.get('/quotations/:id', async (req, res) => {
   } catch (error) {
     console.error('Error in GET /api/quotations/:id:', error);
     res.status(500).json({ message: 'حدث خطأ داخلي أثناء جلب تفاصيل عرض السعر.' });
+  }
+});
+
+// Delete a quotation and its items
+router.delete('/quotations/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const [qRows] = await db.query(`SELECT id FROM quotations WHERE id = ?`, [id]);
+    if (!qRows || qRows.length === 0) {
+      return res.status(404).json({ message: 'لم يتم العثور على عرض السعر.' });
+    }
+    await db.query(`DELETE FROM quotation_items WHERE quotation_id = ?`, [id]);
+    await db.query(`DELETE FROM quotations WHERE id = ?`, [id]);
+    return res.status(204).send();
+  } catch (error) {
+    console.error('Error in DELETE /api/quotations/:id:', error);
+    res.status(500).json({ message: 'حدث خطأ داخلي أثناء حذف عرض السعر.' });
   }
 });
 

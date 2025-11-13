@@ -232,6 +232,9 @@ async function ensureSchema() {
       await ensureColumn('total_before_tax', "DECIMAL(12,2) NULL");
       await ensureColumn('vat15', "DECIMAL(12,2) NULL");
       await ensureColumn('total_with_tax', "DECIMAL(12,2) NULL");
+      await ensureColumn('device_type', "VARCHAR(64) NULL");
+      await ensureColumn('device_count', "INT NULL");
+      await ensureColumn('voltage', "INT NULL");
     } catch (e) {
       console.log(' Skipping quotation_items column check due to error:', e.message);
     }
