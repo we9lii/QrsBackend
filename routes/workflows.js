@@ -224,6 +224,12 @@ router.put('/workflow-requests/:id', upload.any(), checkImportExportPermission, 
         if (requestData.hasOwnProperty('expectedDepartureDate')) {
             dbPayload.expected_departure_date = requestData.expectedDepartureDate || null;
         }
+        if (requestData.hasOwnProperty('manufacturingDate')) {
+            dbPayload.manufacturing_date = requestData.manufacturingDate || null;
+        }
+        if (requestData.hasOwnProperty('expectedArrivalDate')) {
+            dbPayload.expected_arrival_date = requestData.expectedArrivalDate || null;
+        }
         if (requestData.hasOwnProperty('departurePort')) {
             dbPayload.departure_port = requestData.departurePort || null;
         }
@@ -249,7 +255,9 @@ router.put('/workflow-requests/:id', upload.any(), checkImportExportPermission, 
             employeeId: row.employee_id_username,
             containerCount20ft: row.container_count_20ft,
             containerCount40ft: row.container_count_40ft,
+            manufacturingDate: row.manufacturing_date,
             expectedDepartureDate: row.expected_departure_date,
+            expectedArrivalDate: row.expected_arrival_date,
             departurePort: row.departure_port,
         };
         res.json(updatedRequest);

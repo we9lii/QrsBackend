@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const db = require('../db.js');
+const { getDailySerial } = require('../serials');
 
 // List saved quotations (summary for cards)
 router.get('/quotations', async (req, res) => {
@@ -18,6 +19,17 @@ router.get('/quotations', async (req, res) => {
   } catch (error) {
     console.error('Error in GET /api/quotations:', error);
     res.status(500).json({ message: 'حدث خطأ داخلي أثناء جلب عروض الأسعار.' });
+  }
+});
+
+// Generate daily auto-increment serial with fixed prefix 'القصيم'
+router.get('/serial/today', async (req, res) => {
+  try {
+    const serial = getDailySerial();
+    return res.status(200).json({ serial });
+  } catch (e) {
+    console.error('Error generating daily serial:', e);
+    return res.status(500).json({ message: 'Failed to generate daily serial' });
   }
 });
 
