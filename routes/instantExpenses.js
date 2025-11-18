@@ -120,10 +120,46 @@ router.get('/instant-expenses/sheets', checkPurchaseManagementPermission, async 
   }
 });
 
+// GET /api/instant-expenses/sheets/by-number/:number - fetch a sheet by numeric custody number
+router.get('/instant-expenses/sheets/by-number/:number', checkPurchaseManagementPermission, async (req, res) => {
+  const { number } = req.params;
+  try {
+    if (!/^\d+$/.test(String(number))) {
+      return res.status(400).json({ message: 'رقم العهدة يجب أن يكون أرقام فقط.' });
+    }
+    // Try by numeric custody_number first
+    const [byNum] = await db.query('SELECT * FROM instant_expense_sheets WHERE custody_number = ?', [String(number)]);
+    if (!byNum || byNum.length === 0) {
+      return res.status(404).json({ message: 'Sheet not found.' });
+    }
+    const sheet = mapSheetRow(byNum[0]);
+    const [lineRows] = await db.query('SELECT * FROM instant_expense_lines WHERE sheet_id = ? ORDER BY date DESC, created_at DESC', [sheet.id]);
+    const lines = lineRows.map(mapLineRow);
+    res.json({ sheet, lines });
+  } catch (error) {
+    console.error('Error in GET /api/instant-expenses/sheets/by-number/:number:', error);
+    res.status(500).json({ message: 'حدث خطأ داخلي أثناء جلب العهدة حسب الرقم.' });
+  }
+});
+
 // POST /api/instant-expenses/sheets - create a new custody sheet
 router.post('/instant-expenses/sheets', checkPurchaseManagementPermission, async (req, res) => {
   const { employeeId, custodyNumber, custodyAmount, notes } = req.body;
   try {
+    if (custodyNumber !== null && custodyNumber !== undefined) {
+      const numStr = String(custodyNumber).trim();
+      if (!/^\d+$/.test(numStr)) {
+        return res.status(400).json({ message: 'custodyNumber must be numeric digits only.' });
+      }
+    }
+    // Prevent duplicate custody_number
+    if (custodyNumber !== null && custodyNumber !== undefined) {
+      const [dupeRows] = await db.query('SELECT id FROM instant_expense_sheets WHERE custody_number = ? LIMIT 1', [String(custodyNumber)]);
+      if (dupeRows && dupeRows.length > 0) {
+        const [fetched] = await db.query('SELECT * FROM instant_expense_sheets WHERE id = ?', [dupeRows[0].id]);
+        return res.status(409).json(mapSheetRow(fetched[0]));
+      }
+    }
     const [userRows] = await db.query('SELECT id FROM users WHERE username = ? OR id = ?', [employeeId, employeeId]);
     if (userRows.length === 0) return res.status(404).json({ message: 'User not found.' });
     const userId = userRows[0].id;
@@ -228,6 +264,43 @@ router.delete('/instant-expenses/sheets/:id/lines/:lineId', checkPurchaseManagem
   } catch (error) {
     console.error('Error in DELETE /api/instant-expenses/sheets/:id/lines/:lineId:', error);
     res.status(500).json({ message: 'حدث خطأ داخلي أثناء حذف البند.' });
+  }
+});
+
+// PUT /api/instant-expenses/sheets/:id/lines/:lineId - update a line
+router.put('/instant-expenses/sheets/:id/lines/:lineId', checkPurchaseManagementPermission, async (req, res) => {
+  const { id, lineId } = req.params;
+  const { date, company, invoiceNumber, description, reason, amount, bankFees, buyerName, notes } = req.body;
+  try {
+    const [exists] = await db.query('SELECT id FROM instant_expense_lines WHERE id = ? AND sheet_id = ?', [lineId, id]);
+    if (exists.length === 0) return res.status(404).json({ message: 'Line not found.' });
+
+    if (reason === undefined || reason === null) {
+      return res.status(400).json({ message: 'reason is required.' });
+    }
+    if (amount === undefined || amount === null || isNaN(Number(amount))) {
+      return res.status(400).json({ message: 'amount must be a valid number.' });
+    }
+
+    const payload = {};
+    if (date !== undefined) payload.date = date ? new Date(date) : null;
+    if (company !== undefined) payload.company = company || null;
+    if (invoiceNumber !== undefined) payload.invoice_number = invoiceNumber || null;
+    if (description !== undefined) payload.description = description || null;
+    if (reason !== undefined) payload.reason = reason;
+    if (amount !== undefined) payload.amount = Number(amount || 0);
+    if (bankFees !== undefined) payload.bank_fees = bankFees !== null && bankFees !== undefined ? Number(bankFees) : null;
+    if (buyerName !== undefined) payload.buyer_name = buyerName || null;
+    if (notes !== undefined) payload.notes = notes || null;
+
+    await db.query('UPDATE instant_expense_lines SET ? WHERE id = ? AND sheet_id = ?', [payload, lineId, id]);
+    await db.query('UPDATE instant_expense_sheets SET last_modified = NOW() WHERE id = ?', [id]);
+
+    const [rows] = await db.query('SELECT * FROM instant_expense_lines WHERE id = ?', [lineId]);
+    res.json(mapLineRow(rows[0]));
+  } catch (error) {
+    console.error('Error in PUT /api/instant-expenses/sheets/:id/lines/:lineId:', error);
+    res.status(500).json({ message: 'حدث خطأ داخلي أثناء تحديث البند.' });
   }
 });
 
