@@ -160,9 +160,13 @@ router.post('/instant-expenses/sheets', checkPurchaseManagementPermission, async
         return res.status(409).json(mapSheetRow(fetched[0]));
       }
     }
-    const [userRows] = await db.query('SELECT id FROM users WHERE username = ? OR id = ?', [employeeId, employeeId]);
-    if (userRows.length === 0) return res.status(404).json({ message: 'User not found.' });
-    const userId = userRows[0].id;
+    let userId = null;
+    try {
+      const [userRows] = await db.query('SELECT id FROM users WHERE username = ? OR id = ?', [employeeId, employeeId]);
+      if (userRows.length > 0) {
+        userId = userRows[0].id;
+      }
+    } catch {}
 
     const id = `CUST-${Date.now().toString().slice(-6)}`;
     const payload = {
@@ -266,8 +270,17 @@ router.post('/instant-expenses/sheets/:id/lines', checkPurchaseManagementPermiss
     // Touch the parent sheet to update last_modified so lists resort automatically
     await db.query('UPDATE instant_expense_sheets SET last_modified = NOW() WHERE id = ?', [sheetId]);
 
-    const [rows] = await db.query('SELECT * FROM instant_expense_lines WHERE id = ?', [lineId]);
-    res.status(201).json(mapLineRow(rows[0]));
+    let rows;
+    try {
+      const [fetched] = await db.query('SELECT * FROM instant_expense_lines WHERE id = ?', [lineId]);
+      rows = fetched || [];
+    } catch (e) {
+      rows = [];
+    }
+    if (rows.length > 0) {
+      return res.status(201).json(mapLineRow(rows[0]));
+    }
+    return res.status(201).json(mapLineRow(payload));
   } catch (error) {
     console.error('Error in POST /api/instant-expenses/sheets/:id/lines:', error);
     res.status(500).json({ message: 'حدث خطأ داخلي أثناء إضافة بند مصروف.' });
