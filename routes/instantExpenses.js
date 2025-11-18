@@ -200,11 +200,23 @@ router.post('/instant-expenses/sheets', checkPurchaseManagementPermission, async
 router.get('/instant-expenses/sheets/:id', checkPurchaseManagementPermission, async (req, res) => {
   const { id } = req.params;
   try {
-    const [sheetRows] = await db.query('SELECT * FROM instant_expense_sheets WHERE id = ?', [id]);
-    if (sheetRows.length === 0) return res.status(404).json({ message: 'Sheet not found.' });
+    let sheetRows = [];
+    try {
+      const [byId] = await db.query('SELECT * FROM instant_expense_sheets WHERE id = ?', [id]);
+      sheetRows = byId || [];
+    } catch {}
+    if (!sheetRows || sheetRows.length === 0) {
+      const idStr = String(id);
+      if (/^\d+$/.test(idStr)) {
+        const [byCustody] = await db.query('SELECT * FROM instant_expense_sheets WHERE custody_number = ?', [idStr]);
+        sheetRows = byCustody || [];
+      }
+    }
+    if (!sheetRows || sheetRows.length === 0) return res.status(404).json({ message: 'Sheet not found.' });
     const sheet = mapSheetRow(sheetRows[0]);
+    const realId = sheet.id;
 
-    const [lineRows] = await db.query('SELECT * FROM instant_expense_lines WHERE sheet_id = ? ORDER BY date DESC, created_at DESC', [id]);
+    const [lineRows] = await db.query('SELECT * FROM instant_expense_lines WHERE sheet_id = ? ORDER BY date DESC, created_at DESC', [realId]);
     const lines = lineRows.map(mapLineRow);
     res.json({ sheet, lines });
   } catch (error) {
@@ -215,16 +227,29 @@ router.get('/instant-expenses/sheets/:id', checkPurchaseManagementPermission, as
 
 // POST /api/instant-expenses/sheets/:id/lines - add a line
 router.post('/instant-expenses/sheets/:id/lines', checkPurchaseManagementPermission, async (req, res) => {
-  const { id } = req.params; // sheet id
+  const { id } = req.params; // sheet id or custody number
   const { date, company, invoiceNumber, description, reason, amount, bankFees, buyerName, notes } = req.body;
   try {
-    const [sheetRows] = await db.query('SELECT custody_amount FROM instant_expense_sheets WHERE id = ?', [id]);
-    if (sheetRows.length === 0) return res.status(404).json({ message: 'Sheet not found.' });
+    let sheetId = null;
+    let sheetRows = [];
+    try {
+      const [byId] = await db.query('SELECT id, custody_amount FROM instant_expense_sheets WHERE id = ?', [id]);
+      sheetRows = byId || [];
+    } catch {}
+    if (!sheetRows || sheetRows.length === 0) {
+      const idStr = String(id);
+      if (/^\d+$/.test(idStr)) {
+        const [byCustody] = await db.query('SELECT id, custody_amount FROM instant_expense_sheets WHERE custody_number = ?', [idStr]);
+        sheetRows = byCustody || [];
+      }
+    }
+    if (!sheetRows || sheetRows.length === 0) return res.status(404).json({ message: 'Sheet not found.' });
+    sheetId = sheetRows[0].id;
 
     const lineId = `LINE-${Date.now().toString().slice(-9)}`;
     const payload = {
       id: lineId,
-      sheet_id: id,
+      sheet_id: sheetId,
       date: date ? new Date(date) : null,
       company: company || null,
       invoice_number: invoiceNumber || null,
@@ -239,7 +264,7 @@ router.post('/instant-expenses/sheets/:id/lines', checkPurchaseManagementPermiss
     await db.query('INSERT INTO instant_expense_lines SET ?', payload);
 
     // Touch the parent sheet to update last_modified so lists resort automatically
-    await db.query('UPDATE instant_expense_sheets SET last_modified = NOW() WHERE id = ?', [id]);
+    await db.query('UPDATE instant_expense_sheets SET last_modified = NOW() WHERE id = ?', [sheetId]);
 
     const [rows] = await db.query('SELECT * FROM instant_expense_lines WHERE id = ?', [lineId]);
     res.status(201).json(mapLineRow(rows[0]));
@@ -251,14 +276,20 @@ router.post('/instant-expenses/sheets/:id/lines', checkPurchaseManagementPermiss
 
 // DELETE /api/instant-expenses/sheets/:id/lines/:lineId - remove a line
 router.delete('/instant-expenses/sheets/:id/lines/:lineId', checkPurchaseManagementPermission, async (req, res) => {
-  const { id, lineId } = req.params;
+  const { id, lineId } = req.params; // sheet id or custody number
   try {
-    const [exists] = await db.query('SELECT id FROM instant_expense_lines WHERE id = ? AND sheet_id = ?', [lineId, id]);
+    let sheetId = id;
+    // Resolve sheet id if a custody number was provided
+    if (/^\d+$/.test(String(id))) {
+      const [byCustody] = await db.query('SELECT id FROM instant_expense_sheets WHERE custody_number = ?', [String(id)]);
+      if (byCustody && byCustody.length > 0) sheetId = byCustody[0].id;
+    }
+    const [exists] = await db.query('SELECT id FROM instant_expense_lines WHERE id = ? AND sheet_id = ?', [lineId, sheetId]);
     if (exists.length === 0) return res.status(404).json({ message: 'Line not found.' });
-    await db.query('DELETE FROM instant_expense_lines WHERE id = ? AND sheet_id = ?', [lineId, id]);
+    await db.query('DELETE FROM instant_expense_lines WHERE id = ? AND sheet_id = ?', [lineId, sheetId]);
 
     // Touch the parent sheet to update last_modified so lists resort automatically
-    await db.query('UPDATE instant_expense_sheets SET last_modified = NOW() WHERE id = ?', [id]);
+    await db.query('UPDATE instant_expense_sheets SET last_modified = NOW() WHERE id = ?', [sheetId]);
 
     res.json({ message: 'تم حذف البند.' });
   } catch (error) {
